@@ -1,6 +1,7 @@
 package com.prestamo.dalp.model;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -23,9 +24,11 @@ public class Credit {
     private BigDecimal capitalAmount; // Saldo capital
 
     @Column(nullable = false)
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
     private LocalDate startDate; // Fecha de inicio del crédito
 
     @Column(nullable = false)
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
     private LocalDate endDate; // Fecha de finalización del crédito
 
     @Column(nullable = false)
@@ -45,6 +48,11 @@ public class Credit {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private CreditStatus status = CreditStatus.ACTIVE; // Estado del crédito (ACTIVE, PAID, OVERDUE, etc.)
+
+    // Método para calcular la fecha fin automáticamente
+    public LocalDate calculateEndDate(LocalDate firstPaymentDate, int numberOfInstallments) {
+        return firstPaymentDate.plusMonths(numberOfInstallments - 1);
+    }
 
     public BigDecimal calculateTotalInterest() {
         return capitalAmount.multiply(tea).divide(BigDecimal.valueOf(100));

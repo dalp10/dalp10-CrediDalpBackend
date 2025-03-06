@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -26,6 +28,10 @@ public class CreditService {
 
     // Método para crear un nuevo crédito con sus cuotas
     public Credit createCredit(Credit credit, int numberOfInstallments, int gracePeriodDays, BigDecimal tea, LocalDate firstPaymentDate) {
+        // Calcular la fecha fin automáticamente
+        LocalDate endDate = credit.calculateEndDate(firstPaymentDate, numberOfInstallments);
+        credit.setEndDate(endDate); // Asignar la fecha fin calculada
+
         // Guardar el crédito con la TEA
         credit.setTea(tea);
         Credit savedCredit = creditRepository.save(credit);
@@ -154,5 +160,70 @@ public class CreditService {
         dto.setGracePeriodDays(credit.getGracePeriodDays());
         dto.setStatus(credit.getStatus());
         return dto;
+    }
+
+    public List<Installment> calculatePaymentSchedule(
+            Credit credit,
+            int numberOfInstallments,
+            int gracePeriodDays,
+            BigDecimal tea,
+            LocalDate firstPaymentDate
+    ) {
+        // Calcular la tasa mensual a partir de la TEA
+        BigDecimal monthlyRate = calculateMonthlyRate(tea);
+
+        // Calcular el interés de gracia
+        BigDecimal graceInterest = calculateGraceInterest(credit.getCapitalAmount(), monthlyRate, gracePeriodDays);
+
+        // Añadir el interés de gracia al costo total del préstamo
+        BigDecimal totalCost = credit.getCapitalAmount().add(graceInterest);
+
+        // Calcular el monto de la cuota constante (amortización francesa) sobre el costo total
+        BigDecimal installmentAmount = calculateConstantInstallment(totalCost, monthlyRate, numberOfInstallments);
+
+        // Establecer la fecha de la primera cuota
+        LocalDate dueDate = firstPaymentDate;
+
+        BigDecimal remainingCapital = totalCost;
+
+        List<Installment> installments = new ArrayList<>();
+
+        for (int i = 0; i < numberOfInstallments; i++) {
+            Installment installment = new Installment();
+
+            // Calcular el interés de la cuota
+            BigDecimal interestAmount = remainingCapital.multiply(monthlyRate).setScale(2, RoundingMode.HALF_UP);
+
+            // Calcular el capital amortizado
+            BigDecimal capitalPayment = installmentAmount.subtract(interestAmount);
+
+            // Ajustar la última cuota para asegurar que el capital restante se amortice completamente
+            if (i == numberOfInstallments - 1) {
+                capitalPayment = remainingCapital; // Asegurar que el capital restante se amortice completamente
+            }
+
+            // Verificar que el interés no sea negativo
+            if (interestAmount.compareTo(BigDecimal.ZERO) < 0) {
+                throw new IllegalStateException("El interés no puede ser negativo. Revise los cálculos.");
+            }
+
+            // Actualizar el capital restante
+            remainingCapital = remainingCapital.subtract(capitalPayment);
+
+            // Configurar la cuota con la fecha fija de vencimiento
+            installment.setDueDate(calculateDueDate(dueDate, i)); // Fecha fija de pago
+            installment.setAmount(installmentAmount); // Monto de la cuota (constante)
+            installment.setCapitalAmount(capitalPayment); // Monto del capital
+            installment.setInterestAmount(interestAmount); // Monto del interés
+            installment.setCredit(credit); // Asignar el crédito a la cuota
+
+            // Agregar la cuota a la lista
+            installments.add(installment);
+
+            // Ajustar la fecha para la siguiente cuota
+            dueDate = dueDate.plusMonths(1); // Avanzamos a la siguiente fecha del mes para la próxima cuota
+        }
+
+        return installments;
     }
 }

@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -42,5 +43,17 @@ public class CreditController {
     public ResponseEntity<Installment> payInstallment(@PathVariable Long installmentId) {
         Installment paidInstallment = creditService.payInstallment(installmentId);
         return ResponseEntity.ok(paidInstallment);
+    }
+
+    @PostMapping("/calculate-payment-schedule")
+    public ResponseEntity<List<Installment>> calculatePaymentSchedule(
+            @RequestBody Credit credit,
+            @RequestParam int numberOfInstallments,
+            @RequestParam int gracePeriodDays,
+            @RequestParam BigDecimal tea,
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate firstPaymentDate
+    ) {
+        List<Installment> installments = creditService.calculatePaymentSchedule(credit, numberOfInstallments, gracePeriodDays, tea, firstPaymentDate);
+        return ResponseEntity.ok(installments);
     }
 }
