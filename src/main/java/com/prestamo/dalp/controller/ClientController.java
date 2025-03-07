@@ -1,6 +1,8 @@
 package com.prestamo.dalp.controller;
 
 import com.prestamo.dalp.model.Client;
+import com.prestamo.dalp.model.Credit;
+import com.prestamo.dalp.model.Loan;
 import com.prestamo.dalp.service.ClientService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -64,5 +66,19 @@ public class ClientController {
     public ResponseEntity<Boolean> isDocumentNumberExists(@RequestParam String documentNumber) {
         boolean exists = clientService.isDocumentNumberExists(documentNumber);
         return ResponseEntity.ok(exists);  // Retorna true si el número de documento existe, false si no
+    }
+
+    // Obtener los créditos de un cliente por su ID
+    @GetMapping("/{clientId}/credits")
+    public ResponseEntity<List<Credit>> getCreditsByClientId(@PathVariable Long clientId) {
+        List<Credit> credits = clientService.getCreditsByClientId(clientId);
+        return ResponseEntity.ok(credits);  // Retorna la lista de créditos del cliente
+    }
+
+    // Obtener los créditos de un cliente por su ID
+    @GetMapping("/{clientId}/loans")
+    public ResponseEntity<List<Loan>> getLoansByClientId(@PathVariable Long clientId) {
+        List<Loan> loans = clientService.getLoansByClientId(clientId);
+        return ResponseEntity.ok(loans);  // Retorna la lista de créditos del cliente
     }
 }

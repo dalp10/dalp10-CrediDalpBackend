@@ -26,8 +26,20 @@ public class CreditService {
     @Autowired
     private InstallmentRepository installmentRepository;
 
+    // Método para generar un código único (CRE-XXX)
+    private String generateCreditCode() {
+        Long lastCreditId = creditRepository.findMaxId().orElse(0L);
+        return "CRE-" + String.format("%03d", lastCreditId + 1); // CRE-001, CRE-002, etc.
+    }
+
     // Método para crear un nuevo crédito con sus cuotas
     public Credit createCredit(Credit credit, int numberOfInstallments, int gracePeriodDays, BigDecimal tea, LocalDate firstPaymentDate) {
+        // Generar el código único para el crédito
+        credit.setCode(generateCreditCode());
+
+        // Asignar el número de cuota (puede ser el número de cuotas totales)
+        credit.setInstallmentNumber(numberOfInstallments);
+
         // Calcular la fecha fin automáticamente
         LocalDate endDate = credit.calculateEndDate(firstPaymentDate, numberOfInstallments);
         credit.setEndDate(endDate); // Asignar la fecha fin calculada
@@ -81,6 +93,9 @@ public class CreditService {
             installment.setCapitalAmount(capitalPayment); // Monto del capital
             installment.setInterestAmount(interestAmount); // Monto del interés
             installment.setCredit(savedCredit); // Asignar el crédito a la cuota
+
+            // Asignar el número de cuota (i + 1 porque las cuotas comienzan en 1)
+            installment.setInstallmentNumber(i + 1);
 
             // Guardar la cuota en la base de datos
             installmentRepository.save(installment);

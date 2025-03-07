@@ -1,7 +1,11 @@
 package com.prestamo.dalp.service;
 
 import com.prestamo.dalp.model.Client;
+import com.prestamo.dalp.model.Credit;
+import com.prestamo.dalp.model.Loan;
 import com.prestamo.dalp.repository.ClientRepository;
+import com.prestamo.dalp.repository.CreditRepository;
+import com.prestamo.dalp.repository.LoanRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -13,6 +17,12 @@ public class ClientService {
 
     @Autowired
     private ClientRepository clientRepository;
+
+    @Autowired
+    private CreditRepository creditRepository;
+
+    @Autowired
+    private LoanRepository loanRepository;
 
     // Obtener todos los clientes
     public List<Client> getAllClients() {
@@ -88,5 +98,15 @@ public class ClientService {
     public boolean isDocumentNumberExists(String documentNumber) {
         Optional<Client> existingClient = clientRepository.findByDocumentNumber(documentNumber);
         return existingClient.isPresent();
+    }
+
+    // Método para obtener los créditos de un cliente por su ID
+    public List<Credit> getCreditsByClientId(Long clientId) {
+        return creditRepository.findByClientId(clientId); // Obtener los créditos del cliente
+    }
+
+    // Método para obtener los créditos de un cliente por su ID
+    public List<Loan> getLoansByClientId(Long clientId) {
+        return loanRepository.findByClient_Id(clientId); // Obtener los créditos del cliente
     }
 }

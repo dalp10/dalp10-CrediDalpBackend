@@ -19,7 +19,7 @@ public class SecurityConfig  {
         return http
                 .csrf(csrf -> csrf.disable()) // Deshabilitar CSRF
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/login", "/api/auth/register","/api/users/**","/api/roles/**","/api/clients/**","/api/loans/**","/api/credits/**").permitAll() // ✅ SOLUCIÓN
+                        .requestMatchers("/api/auth/login", "/api/auth/register","/api/users/**","/api/roles/**","/api/clients/**","/api/loans/**","/api/credits/**","/api/payments/**").permitAll() // ✅ SOLUCIÓN
                         .anyRequest().authenticated()
                 )
                 .build();

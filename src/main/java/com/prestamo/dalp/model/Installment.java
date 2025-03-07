@@ -31,9 +31,25 @@ public class Installment {
     @Column(nullable = false)
     private BigDecimal interestAmount; // Parte del interés a pagar en la cuota
 
+    @Column(nullable = false)
+    private BigDecimal capitalPaid = BigDecimal.ZERO; // Capital pagado
+
+    @Column(nullable = false)
+    private BigDecimal interestPaid = BigDecimal.ZERO; // Interés pagado
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private InstallmentStatus status = InstallmentStatus.PENDING; // Estado de la cuota (PENDING, PAID, OVERDUE)
+    private InstallmentStatus status = InstallmentStatus.PENDING; // Estado de la cuota (PENDING, PAID, PARTIALLY_PAID, OVERDUE)
+
+    @Column
+    private String paymentMethod; // Medio de pago (efectivo, transferencia, Yape, Plin)
+
+    @Column
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd")
+    private LocalDate paymentDate; // Fecha de pago
+
+    @Column(nullable = false)
+    private int installmentNumber; // Número de cuota (1, 2, 3, ...)
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "credit_id", nullable = false)

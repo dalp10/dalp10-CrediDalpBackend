@@ -49,6 +49,12 @@ public class Credit {
     @Column(nullable = false)
     private CreditStatus status = CreditStatus.ACTIVE; // Estado del crédito (ACTIVE, PAID, OVERDUE, etc.)
 
+    @Column(nullable = false, unique = true)
+    private String code; // Código autogenerado (CRE-XXX)
+
+    @Column(nullable = false)
+    private int installmentNumber; // Número de cuota
+
     // Método para calcular la fecha fin automáticamente
     public LocalDate calculateEndDate(LocalDate firstPaymentDate, int numberOfInstallments) {
         return firstPaymentDate.plusMonths(numberOfInstallments - 1);
