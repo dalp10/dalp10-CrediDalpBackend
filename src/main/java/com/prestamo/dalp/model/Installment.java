@@ -1,12 +1,15 @@
 package com.prestamo.dalp.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 @Entity
 @Table(name = "installments")
@@ -53,5 +56,7 @@ public class Installment {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "credit_id", nullable = false)
+    @JsonBackReference // Ignora la serialización de la relación en este lado
     private Credit credit; // Crédito asociado a la cuota
+
 }

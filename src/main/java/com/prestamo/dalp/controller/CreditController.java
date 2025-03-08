@@ -1,9 +1,11 @@
 package com.prestamo.dalp.controller;
 
 import com.prestamo.dalp.DTO.CreditDTO;
+import com.prestamo.dalp.DTO.InstallmentDTO;
 import com.prestamo.dalp.model.Credit;
 import com.prestamo.dalp.model.Installment;
 import com.prestamo.dalp.service.CreditService;
+import com.prestamo.dalp.service.InstallmentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +22,9 @@ public class CreditController {
 
     @Autowired
     private CreditService creditService;
+
+    @Autowired
+    private InstallmentService installmentService;
 
     @PostMapping
     public ResponseEntity<Credit> createCredit(
@@ -54,6 +59,13 @@ public class CreditController {
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate firstPaymentDate
     ) {
         List<Installment> installments = creditService.calculatePaymentSchedule(credit, numberOfInstallments, gracePeriodDays, tea, firstPaymentDate);
+        return ResponseEntity.ok(installments);
+    }
+
+    // Obtener los pagos (cuotas) de un crédito por su ID
+    @GetMapping("/{creditId}/installments")
+    public ResponseEntity<List<InstallmentDTO>> getInstallmentsByCreditId(@PathVariable Long creditId) {
+        List<InstallmentDTO> installments = installmentService.getInstallmentsByCreditId(creditId);
         return ResponseEntity.ok(installments);
     }
 }

@@ -9,6 +9,7 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -52,6 +53,17 @@ public class Loan {
 
     @Transient
     private Long clientId;  // Nuevo campo para incluir el id del cliente
+
+    private Integer daysOverdue;  // Días de atraso en el pago
+
+    @NotNull
+    private BigDecimal interestPaid = BigDecimal.ZERO;  // Monto del interés pagado
+
+    @NotNull
+    private BigDecimal capitalPaid = BigDecimal.ZERO;  // Monto del capital pagado
+
+    @OneToMany(mappedBy = "loan", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<Payment> payments;  // Lista de pagos realizados sobre este préstamo
 
     @PrePersist
     @PreUpdate  // Asegura que el cálculo se haga también cuando se actualice el préstamo

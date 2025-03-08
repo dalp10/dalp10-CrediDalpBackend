@@ -174,8 +174,17 @@ public class CreditService {
         dto.setEndDate(credit.getEndDate());
         dto.setGracePeriodDays(credit.getGracePeriodDays());
         dto.setStatus(credit.getStatus());
+
+        // Campos adicionales
+        dto.setTea(credit.getTea()); // Asignar Tasa Efectiva Anual
+        dto.setCode(credit.getCode()); // Asignar Código del Crédito
+        dto.setInstallmentNumber(credit.getInstallmentNumber()); // Asignar Número de Cuotas
+        //dto.setInstallments(credit.getInstallments()); // Asignar Lista de Cuotas
+        //dto.setClient(credit.getClient()); // Asignar Cliente asociado al crédito
+
         return dto;
     }
+
 
     public List<Installment> calculatePaymentSchedule(
             Credit credit,
@@ -241,4 +250,10 @@ public class CreditService {
 
         return installments;
     }
+
+    // Obtener las cuotas de un crédito por su ID
+    public List<Installment> getInstallmentsByCreditId(Long creditId) {
+        return installmentRepository.findByCreditId(creditId);
+    }
+
 }

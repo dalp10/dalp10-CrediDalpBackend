@@ -1,5 +1,6 @@
 package com.prestamo.dalp.service;
 
+import com.prestamo.dalp.DTO.LoanDTO;
 import com.prestamo.dalp.model.Loan;
 import com.prestamo.dalp.model.Client;
 import com.prestamo.dalp.repository.LoanRepository;
@@ -70,5 +71,20 @@ public class LoanService {
         } else {
             return "Error: Préstamo no encontrado";  // Mensaje de error si no existe el préstamo
         }
+    }
+
+    public LoanDTO convertToDTO(Loan loan) {
+        LoanDTO dto = new LoanDTO();
+        dto.setId(loan.getId());
+        dto.setAmount(loan.getAmount());
+        dto.setInterestRate(loan.getInterestRate());
+        dto.setIssueDate(loan.getIssueDate());
+        dto.setDueDate(loan.getDueDate());
+        dto.setLoanCode(loan.getLoanCode());
+        dto.setInterestAmount(loan.getInterestAmount());
+        dto.setTotalAmount(loan.getTotalAmount());
+        dto.setStatus(loan.getStatus());
+        dto.setClientId(loan.getClient() != null ? loan.getClient().getId() : null);
+        return dto;
     }
 }

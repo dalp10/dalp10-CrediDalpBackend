@@ -1,5 +1,6 @@
 package com.prestamo.dalp.controller;
 
+import com.prestamo.dalp.DTO.ClientDTO;
 import com.prestamo.dalp.model.Client;
 import com.prestamo.dalp.model.Credit;
 import com.prestamo.dalp.model.Loan;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/clients")
@@ -20,10 +22,14 @@ public class ClientController {
 
     // Obtener todos los clientes
     @GetMapping
-    public List<Client> getAllClients() {
-        return clientService.getAllClients();
+    public List<ClientDTO> getAllClients() {
+        return clientService.getAllClients().stream()
+                .map(client -> {
+                    boolean hasCredits = clientService.hasCredits(client.getId());
+                    return new ClientDTO(client, hasCredits);
+                })
+                .collect(Collectors.toList());
     }
-
     // Obtener un cliente por ID
     @GetMapping("/{id}")
     public ResponseEntity<Client> getClientById(@PathVariable Long id) {
@@ -81,4 +87,13 @@ public class ClientController {
         List<Loan> loans = clientService.getLoansByClientId(clientId);
         return ResponseEntity.ok(loans);  // Retorna la lista de créditos del cliente
     }
+
+    // Buscar clientes por número de documento o nombre
+    @GetMapping("/search")
+    public ResponseEntity<List<ClientDTO>> searchClients(@RequestParam String query) {
+        List<ClientDTO> clients = clientService.searchClients(query);
+        return ResponseEntity.ok(clients);  // Retorna la lista de clientes que coinciden con la búsqueda
+    }
+
+
 }

@@ -1,9 +1,11 @@
 package com.prestamo.dalp.model;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.util.UUID;
+import java.util.List;
 
 @Entity
 @Table(name = "clients")
@@ -32,6 +34,10 @@ public class Client {
 
     @Column(nullable = false, unique = true, updatable = false)
     private String clientIdentifier;
+
+    @OneToMany(mappedBy = "client", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
+    private List<Credit> credits; // Agrega este campo si no existe
 
     @PrePersist
     public void generateClientIdentifier() {

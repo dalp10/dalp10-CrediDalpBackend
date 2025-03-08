@@ -1,5 +1,6 @@
 package com.prestamo.dalp.service;
 
+import com.prestamo.dalp.DTO.ClientDTO;
 import com.prestamo.dalp.model.Client;
 import com.prestamo.dalp.model.Credit;
 import com.prestamo.dalp.model.Loan;
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class ClientService {
@@ -108,5 +110,22 @@ public class ClientService {
     // Método para obtener los créditos de un cliente por su ID
     public List<Loan> getLoansByClientId(Long clientId) {
         return loanRepository.findByClient_Id(clientId); // Obtener los créditos del cliente
+    }
+
+    public boolean hasCredits(Long clientId) {
+        boolean hasCredits = !creditRepository.findByClientId(clientId).isEmpty();
+        boolean hasLoans = !loanRepository.findByClient_Id(clientId).isEmpty();
+        return hasCredits || hasLoans; // Devuelve true si tiene créditos o préstamos
+    }
+
+    // Método para buscar clientes por número de documento o nombre
+    public List<ClientDTO> searchClients(String query) {
+        List<Client> clients = clientRepository.findByDocumentNumberOrNameContaining(query);
+        return clients.stream()
+                .map(client -> {
+                    boolean hasCredits = hasCredits(client.getId());
+                    return new ClientDTO(client, hasCredits);
+                })
+                .collect(Collectors.toList());
     }
 }

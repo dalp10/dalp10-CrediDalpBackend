@@ -1,5 +1,6 @@
 package com.prestamo.dalp.service;
 
+import com.prestamo.dalp.DTO.InstallmentDTO;
 import com.prestamo.dalp.DTO.PaymentDTO;
 import com.prestamo.dalp.model.Installment;
 import com.prestamo.dalp.model.InstallmentStatus;
@@ -8,6 +9,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class InstallmentService {
@@ -54,5 +57,27 @@ public class InstallmentService {
 
         // Guardar la cuota actualizada
         return installmentRepository.save(installment);
+    }
+
+    public List<InstallmentDTO> getInstallmentsByCreditId(Long creditId) {
+        List<Installment> installments = installmentRepository.findByCreditId(creditId);
+        return installments.stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    private InstallmentDTO convertToDTO(Installment installment) {
+        InstallmentDTO dto = new InstallmentDTO();
+        dto.setId(installment.getId());
+        dto.setAmount(installment.getAmount());
+        dto.setDueDate(installment.getDueDate());
+        dto.setStatus(installment.getStatus());
+        dto.setInstallmentNumber(installment.getInstallmentNumber());
+        dto.setCapitalAmount(installment.getCapitalAmount());
+        dto.setInterestAmount(installment.getInterestAmount());
+        dto.setCapitalPaid(installment.getCapitalPaid());
+        dto.setInterestPaid(installment.getInterestPaid());
+
+        return dto;
     }
 }
