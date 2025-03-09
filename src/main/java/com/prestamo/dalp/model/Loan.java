@@ -4,9 +4,9 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
 import lombok.Setter;
-
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -22,64 +22,84 @@ public class Loan {
     private Long id;
 
     @NotNull
-    private BigDecimal amount;  // Monto del préstamo
+    private BigDecimal amount;         // Monto original del préstamo (capital)
 
     @NotNull
-    private BigDecimal interestRate;  // Tasa de interés
+    private BigDecimal interestRate;   // Tasa de interés original
 
     @NotNull
-    private LocalDate issueDate;  // Fecha de emisión del préstamo
+    private LocalDate issueDate;       // Fecha de emisión del préstamo
 
-    private LocalDate dueDate;  // Fecha de vencimiento
+    private LocalDate dueDate;         // Fecha de vencimiento (opcional)
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "client_id")
-    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)  // Solo se usa para deserialización
-    private Client client;  // Cliente asociado al préstamo
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    private Client client;
 
     @NotNull
-    @Column(unique = true)  // Asegura que el código será único en la base de datos
-    private String loanCode;  // Código único para cada préstamo
+    @Column(unique = true)
+    private String loanCode;           // Código único del préstamo
 
     @NotNull
-    private BigDecimal interestAmount;  // Monto del interés calculado
+    private BigDecimal interestAmount; // Interés original calculado (amount * interestRate / 100)
 
     @NotNull
-    private BigDecimal totalAmount;  // Monto total (monto del préstamo + monto del interés)
+    private BigDecimal totalAmount;    // Saldo pendiente (se irá recalculando)
+
+    @NotNull
+    private BigDecimal interestPaid = BigDecimal.ZERO;  // Interés pagado acumulado
+
+    @NotNull
+    private BigDecimal capitalPaid = BigDecimal.ZERO;   // Capital pagado acumulado
+
+    // NUEVOS CAMPOS: capital e interés pendiente
+    @NotNull
+    private BigDecimal remainingCapital = BigDecimal.ZERO;
+
+    @NotNull
+    private BigDecimal remainingInterest = BigDecimal.ZERO;
 
     @Enumerated(EnumType.STRING)
     @NotNull
-    private LoanStatus status = LoanStatus.PENDING;  // Estado del préstamo (inicialmente PENDING)
+    private LoanStatus status = LoanStatus.PENDING;
 
-    @Transient
-    private Long clientId;  // Nuevo campo para incluir el id del cliente
-
-    private Integer daysOverdue;  // Días de atraso en el pago
-
-    @NotNull
-    private BigDecimal interestPaid = BigDecimal.ZERO;  // Monto del interés pagado
-
-    @NotNull
-    private BigDecimal capitalPaid = BigDecimal.ZERO;  // Monto del capital pagado
+    private Integer daysOverdue;
 
     @OneToMany(mappedBy = "loan", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<Payment> payments;  // Lista de pagos realizados sobre este préstamo
+    private List<Payment> payments;
 
     @PrePersist
-    @PreUpdate  // Asegura que el cálculo se haga también cuando se actualice el préstamo
+    @PreUpdate
     public void calculateAndGenerateCode() {
-        // Genera un código único con el prefijo "LOAN-" seguido de una parte aleatoria (usando UUID)
-        this.loanCode = "LOAN-" + generateUniqueCode();
+        // Solo generar el código si es nuevo (ID nulo) y aún no se ha asignado.
+        if (this.id == null && this.loanCode == null) {
+            this.loanCode = "LOAN-" + generateUniqueCode();
+        }
 
-        // Calcular monto de interés (Interés = monto * tasa de interés)
-        this.interestAmount = this.amount.multiply(this.interestRate).divide(BigDecimal.valueOf(100));
+        // Si es creación (ID nulo), inicializar los valores originales y pendientes.
+        if (this.id == null) {
+            // Inicializar interestAmount y totalAmount solo si aún no se han establecido.
+            if (this.interestAmount == null || this.interestAmount.compareTo(BigDecimal.ZERO) == 0) {
+                this.interestAmount = this.amount.multiply(this.interestRate).divide(BigDecimal.valueOf(100));
+            }
+            if (this.totalAmount == null || this.totalAmount.compareTo(BigDecimal.ZERO) == 0) {
+                this.totalAmount = this.amount.add(this.interestAmount);
+            }
 
-        // Calcular monto total (Monto total = monto + monto del interés)
-        this.totalAmount = this.amount.add(this.interestAmount);
+            // Inicializar remainingCapital y remainingInterest con los valores originales.
+            if (this.remainingCapital == null || this.remainingCapital.compareTo(BigDecimal.ZERO) == 0) {
+                this.remainingCapital = this.amount;
+            }
+            if (this.remainingInterest == null || this.remainingInterest.compareTo(BigDecimal.ZERO) == 0) {
+                this.remainingInterest = this.interestAmount;
+            }
+        }
+        // Si no es creación (ID ya asignado), no se reinicializan estos campos.
     }
 
+
     private String generateUniqueCode() {
-        // Generar un identificador único con una parte alfanumérica, por ejemplo con UUID
-        return UUID.randomUUID().toString().substring(0, 8);  // Limitar a los primeros 8 caracteres
+        return UUID.randomUUID().toString().substring(0, 8);
     }
 }

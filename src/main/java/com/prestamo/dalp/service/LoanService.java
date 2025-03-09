@@ -1,15 +1,21 @@
 package com.prestamo.dalp.service;
 
+import com.prestamo.dalp.DTO.CreditDTO;
 import com.prestamo.dalp.DTO.LoanDTO;
+import com.prestamo.dalp.model.Credit;
 import com.prestamo.dalp.model.Loan;
 import com.prestamo.dalp.model.Client;
+import com.prestamo.dalp.model.LoanHistory;
+import com.prestamo.dalp.repository.LoanHistoryRepository;
 import com.prestamo.dalp.repository.LoanRepository;
 import com.prestamo.dalp.repository.ClientRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class LoanService {
@@ -19,6 +25,9 @@ public class LoanService {
 
     @Autowired
     private ClientRepository clientRepository;
+
+    @Autowired
+    private LoanHistoryRepository loanHistoryRepository;
 
     // Obtener todos los préstamos
     public List<Loan> getAllLoans() {
@@ -36,7 +45,20 @@ public class LoanService {
         Optional<Client> client = clientRepository.findById(loan.getClient().getId());
         if (client.isPresent()) {
             loan.setClient(client.get());  // Asociar cliente al préstamo
+
             loanRepository.save(loan);  // El cálculo de los montos se realiza automáticamente
+
+            // Crear registro de historial inicial
+            LoanHistory history = new LoanHistory();
+            history.setLoan(loan);
+            history.setTotalAmount(loan.getTotalAmount());
+            history.setAmount(loan.getAmount());
+            history.setInterestAmount(loan.getInterestAmount());
+            history.setCapitalPaid(loan.getCapitalPaid());
+            history.setInterestPaid(loan.getInterestPaid());
+            history.setTimestamp(LocalDateTime.now());
+            loanHistoryRepository.save(history);
+
             return "Préstamo creado con éxito";  // Mensaje de éxito
         } else {
             return "Error: Cliente no encontrado";  // Mensaje de error si no existe el cliente
@@ -85,6 +107,20 @@ public class LoanService {
         dto.setTotalAmount(loan.getTotalAmount());
         dto.setStatus(loan.getStatus());
         dto.setClientId(loan.getClient() != null ? loan.getClient().getId() : null);
+
+        // Asignamos los nuevos campos: se espera que la entidad Loan los tenga actualizados
+        dto.setRemainingCapital(loan.getRemainingCapital());
+        dto.setRemainingInterest(loan.getRemainingInterest());
+
         return dto;
+    }
+
+
+    // Método para obtener todos los créditos de un cliente
+    public List<LoanDTO> getCreditsByClient(Long clientId) {
+        List<Loan> credits = loanRepository.findByClient_Id(clientId);
+        return credits.stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
     }
 }

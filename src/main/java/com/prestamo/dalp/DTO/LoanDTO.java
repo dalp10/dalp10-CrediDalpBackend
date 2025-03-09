@@ -23,6 +23,8 @@ public class LoanDTO {
     private BigDecimal totalAmount;
     private LoanStatus status;
     private Long clientId;
-
+    // Nuevos campos para saldo pendiente
+    private BigDecimal remainingCapital;   // Capital pendiente
+    private BigDecimal remainingInterest;  // Interés pendiente
     // Getters y Setters
 }

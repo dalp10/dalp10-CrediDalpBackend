@@ -1,5 +1,6 @@
 package com.prestamo.dalp.controller;
 
+import com.prestamo.dalp.DTO.CreditDTO;
 import com.prestamo.dalp.DTO.LoanDTO;
 import com.prestamo.dalp.model.Loan;
 import com.prestamo.dalp.service.LoanService;
@@ -79,5 +80,12 @@ public class LoanController {
     public ResponseEntity<Loan> getLoanById(@PathVariable Long id) {
         Optional<Loan> loan = loanService.getLoanById(id);
         return loan.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    // Obtener un préstamo por ID
+    @GetMapping("/client/{clientId}")
+    public ResponseEntity<List<LoanDTO>> getLoansByClient(@PathVariable Long clientId) {
+        List<LoanDTO> loans = loanService.getCreditsByClient(clientId);
+        return ResponseEntity.ok(loans);
     }
 }
