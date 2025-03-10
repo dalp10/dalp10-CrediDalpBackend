@@ -1,5 +1,9 @@
 package com.prestamo.dalp.model;
 
-enum PaymentMethod {
-    EFECTIVO, TRANSFERENCIA, YAPE, PLIN
+public enum PaymentMethod {
+    EFECTIVO,
+    TRANSFERENCIA,
+    PLIN,
+    YAPE,
+    TARJETA
 }

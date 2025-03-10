@@ -11,16 +11,25 @@ import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
 @EnableWebSecurity
-public class SecurityConfig  {
-
+public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
                 .csrf(csrf -> csrf.disable()) // Deshabilitar CSRF
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/login", "/api/auth/register","/api/users/**","/api/roles/**","/api/clients/**","/api/loans/**","/api/credits/**","/api/payments/**").permitAll() // ✅ SOLUCIÓN
-                        .anyRequest().authenticated()
+                        .requestMatchers(
+                                "/api/auth/login",
+                                "/api/auth/register",
+                                "/api/users/**",
+                                "/api/roles/**",
+                                "/api/clients/**",
+                                "/api/loans/**",
+                                "/api/credits/**",
+                                "/api/payments/**",
+                                "/api/group-payments/**"
+                        ).permitAll() // Permitir todas las solicitudes a estos endpoints
+                        .anyRequest().authenticated() // Autenticar el resto
                 )
                 .build();
     }
@@ -32,6 +41,7 @@ public class SecurityConfig  {
 
     @Bean
     public UserDetailsService userDetailsService() {
-        return username -> null; // Replace with actual UserDetailsService implementation
+        // Reemplazar con la implementación real de UserDetailsService
+        return username -> null;
     }
 }
