@@ -62,7 +62,7 @@ public class Loan {
 
     @Enumerated(EnumType.STRING)
     @NotNull
-    private LoanStatus status = LoanStatus.PENDING;
+    private LoanStatus status = LoanStatus.PENDIENTE;
 
     private Integer daysOverdue;
 

@@ -1,9 +1,9 @@
 package com.prestamo.dalp.model;
 
 public enum LoanStatus {
-    PENDING,    // Préstamo pendiente de aprobación o procesamiento
-    APPROVED,   // Préstamo aprobado
-    REJECTED,   // Préstamo rechazado
-    PAID,       // Préstamo pagado
-    OVERDUE     // Préstamo vencido
+    PENDIENTE,    // Préstamo pendiente de aprobación o procesamiento
+    APROBADO,     // Préstamo aprobado
+    RECHAZADO,    // Préstamo rechazado
+    PAGADO,       // Préstamo pagado
+    VENCIDO       // Préstamo vencido
 }

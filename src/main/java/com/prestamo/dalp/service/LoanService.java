@@ -1,8 +1,7 @@
 package com.prestamo.dalp.service;
 
-import com.prestamo.dalp.DTO.CreditDTO;
 import com.prestamo.dalp.DTO.LoanDTO;
-import com.prestamo.dalp.model.Credit;
+import com.prestamo.dalp.mapper.LoanMapper;
 import com.prestamo.dalp.model.Loan;
 import com.prestamo.dalp.model.Client;
 import com.prestamo.dalp.model.LoanHistory;
@@ -12,7 +11,9 @@ import com.prestamo.dalp.repository.ClientRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -29,62 +30,138 @@ public class LoanService {
     @Autowired
     private LoanHistoryRepository loanHistoryRepository;
 
-    // Obtener todos los préstamos
-    public List<Loan> getAllLoans() {
-        return loanRepository.findAll();
+    /**
+     * Obtiene todos los préstamos registrados en la base de datos.
+     *
+     * @return Lista de préstamos en formato DTO.
+     */
+    public List<LoanDTO> getAllLoans() {
+        List<Loan> loans = loanRepository.findAll();
+        return loans.stream()
+                .map(LoanMapper::toDTO) // Convertir cada entidad Loan a LoanDTO
+                .collect(Collectors.toList());
     }
 
-    // Obtener un préstamo por ID
-    public Optional<Loan> getLoanById(Long id) {
-        return loanRepository.findById(id);
+    /**
+     * Obtiene un préstamo por su ID.
+     *
+     * @param id ID del préstamo a buscar.
+     * @return El préstamo en formato DTO, o null si no se encuentra.
+     */
+    public LoanDTO getLoanById(Long id) {
+        Optional<Loan> loan = loanRepository.findById(id);
+        return loan.map(LoanMapper::toDTO).orElse(null); // Convertir la entidad a DTO si existe
     }
 
-    // Crear un nuevo préstamo
-    public String createLoan(Loan loan) {
+    /**
+     * Crea un nuevo préstamo y lo guarda en la base de datos.
+     *
+     * @param loanDTO Datos del préstamo en formato DTO.
+     * @return El préstamo creado en formato DTO.
+     * @throws RuntimeException Si el cliente asociado no existe.
+     */
+    public LoanDTO createLoan(LoanDTO loanDTO) {
         // Verificar si el cliente existe
-        Optional<Client> client = clientRepository.findById(loan.getClient().getId());
-        if (client.isPresent()) {
-            loan.setClient(client.get());  // Asociar cliente al préstamo
-
-            loanRepository.save(loan);  // El cálculo de los montos se realiza automáticamente
-
-            // Crear registro de historial inicial
-            LoanHistory history = new LoanHistory();
-            history.setLoan(loan);
-            history.setTotalAmount(loan.getTotalAmount());
-            history.setAmount(loan.getAmount());
-            history.setInterestAmount(loan.getInterestAmount());
-            history.setCapitalPaid(loan.getCapitalPaid());
-            history.setInterestPaid(loan.getInterestPaid());
-            history.setTimestamp(LocalDateTime.now());
-            loanHistoryRepository.save(history);
-
-            return "Préstamo creado con éxito";  // Mensaje de éxito
-        } else {
-            return "Error: Cliente no encontrado";  // Mensaje de error si no existe el cliente
+        Optional<Client> client = clientRepository.findById(loanDTO.getClientId());
+        if (client.isEmpty()) {
+            throw new RuntimeException("Error: Cliente no encontrado");
         }
+
+        // Verificar si el loan_code ya existe
+        Optional<Loan> existingLoan = loanRepository.findByLoanCode(loanDTO.getLoanCode());
+        if (existingLoan.isPresent()) {
+            throw new RuntimeException("Error: El código del préstamo ya existe");
+        }
+
+        // Convertir el DTO a entidad
+        Loan loan = LoanMapper.toEntity(loanDTO);
+        loan.setClient(client.get());  // Asociar cliente al préstamo
+
+        // Inicializar capital_PAGADO e interest_PAGADO en cero si no se proporcionan
+        if (loanDTO.getCapitalPaid() == null) {
+            loan.setCapitalPaid(BigDecimal.ZERO);
+        }
+        if (loanDTO.getInterestPaid() == null) {
+            loan.setInterestPaid(BigDecimal.ZERO);
+        }
+
+        // Calcular remainingCapital y remainingInterest si no se enviaron
+        if (loanDTO.getRemainingCapital() == null) {
+            loan.setRemainingCapital(loan.getAmount()); // Al crear el préstamo, el capital restante es igual al monto total
+        }
+        if (loanDTO.getRemainingInterest() == null) {
+            // Calcular el interés restante: amount * (interestRate / 100)
+            BigDecimal interestRatePercentage = loan.getInterestRate().divide(BigDecimal.valueOf(100));
+            BigDecimal remainingInterest = loan.getAmount().multiply(interestRatePercentage);
+            loan.setRemainingInterest(remainingInterest);
+        }
+
+        // Calcular días de atraso (days_VENCIDO)
+        if (loanDTO.getDueDate() != null && loanDTO.getIssueDate() != null) {
+            long daysVENCIDO = ChronoUnit.DAYS.between(loanDTO.getIssueDate(), loanDTO.getDueDate());
+            loan.setDaysOverdue((int) daysVENCIDO);
+        }
+
+        // Guardar el préstamo
+        loanRepository.save(loan);
+
+        // Crear registro de historial inicial
+        LoanHistory history = new LoanHistory();
+        history.setLoan(loan);
+        history.setTotalAmount(loan.getTotalAmount());
+        history.setAmount(loan.getAmount());
+        history.setInterestAmount(loan.getInterestAmount());
+        history.setCapitalPaid(loan.getCapitalPaid());
+        history.setInterestPaid(loan.getInterestPaid());
+        history.setTimestamp(LocalDateTime.now());
+        loanHistoryRepository.save(history);
+
+        // Convertir la entidad guardada a DTO para devolverla en la respuesta
+        return LoanMapper.toDTO(loan);
     }
 
-    // Actualizar un préstamo existente
-    public String updateLoan(Long id, Loan updatedLoan) {
+    /**
+     * Actualiza un préstamo existente.
+     *
+     * @param id ID del préstamo a actualizar.
+     * @param updatedLoanDTO Datos actualizados del préstamo en formato DTO.
+     * @return El préstamo actualizado en formato DTO.
+     * @throws RuntimeException Si el préstamo no se encuentra.
+     */
+    public LoanDTO updateLoan(Long id, LoanDTO updatedLoanDTO) {
         Optional<Loan> existingLoan = loanRepository.findById(id);
         if (existingLoan.isPresent()) {
             Loan loan = existingLoan.get();
-            loan.setAmount(updatedLoan.getAmount());
-            loan.setInterestRate(updatedLoan.getInterestRate());
-            loan.setIssueDate(updatedLoan.getIssueDate());
-            loan.setDueDate(updatedLoan.getDueDate());
-            loan.setClient(updatedLoan.getClient());
+            loan.setAmount(updatedLoanDTO.getAmount());
+            loan.setInterestRate(updatedLoanDTO.getInterestRate());
+            loan.setIssueDate(updatedLoanDTO.getIssueDate());
+            loan.setDueDate(updatedLoanDTO.getDueDate());
+            loan.setStatus(updatedLoanDTO.getStatus());
+            loan.setRemainingCapital(updatedLoanDTO.getRemainingCapital());
+            loan.setRemainingInterest(updatedLoanDTO.getRemainingInterest());
 
-            // No es necesario llamar a calculateAmounts() aquí, ya que se maneja en la entidad Loan
+            // Asignar el cliente si el clientId está presente
+            if (updatedLoanDTO.getClientId() != null) {
+                Optional<Client> client = clientRepository.findById(updatedLoanDTO.getClientId());
+                client.ifPresent(loan::setClient);
+            }
+
+            // Guardar los cambios en la base de datos
             loanRepository.save(loan);
-            return "Préstamo actualizado con éxito";  // Mensaje de éxito
+
+            // Convertir la entidad actualizada a DTO y devolverla
+            return LoanMapper.toDTO(loan);
         } else {
-            return "Error: Préstamo no encontrado";  // Mensaje de error si no existe el préstamo
+            throw new RuntimeException("Error: Préstamo no encontrado");
         }
     }
 
-    // Eliminar un préstamo
+    /**
+     * Elimina un préstamo por su ID.
+     *
+     * @param id ID del préstamo a eliminar.
+     * @return Mensaje de éxito o error.
+     */
     public String deleteLoan(Long id) {
         Optional<Loan> existingLoan = loanRepository.findById(id);
         if (existingLoan.isPresent()) {
@@ -95,32 +172,16 @@ public class LoanService {
         }
     }
 
-    public LoanDTO convertToDTO(Loan loan) {
-        LoanDTO dto = new LoanDTO();
-        dto.setId(loan.getId());
-        dto.setAmount(loan.getAmount());
-        dto.setInterestRate(loan.getInterestRate());
-        dto.setIssueDate(loan.getIssueDate());
-        dto.setDueDate(loan.getDueDate());
-        dto.setLoanCode(loan.getLoanCode());
-        dto.setInterestAmount(loan.getInterestAmount());
-        dto.setTotalAmount(loan.getTotalAmount());
-        dto.setStatus(loan.getStatus());
-        dto.setClientId(loan.getClient() != null ? loan.getClient().getId() : null);
-
-        // Asignamos los nuevos campos: se espera que la entidad Loan los tenga actualizados
-        dto.setRemainingCapital(loan.getRemainingCapital());
-        dto.setRemainingInterest(loan.getRemainingInterest());
-
-        return dto;
-    }
-
-
-    // Método para obtener todos los créditos de un cliente
-    public List<LoanDTO> getCreditsByClient(Long clientId) {
-        List<Loan> credits = loanRepository.findByClient_Id(clientId);
-        return credits.stream()
-                .map(this::convertToDTO)
+    /**
+     * Obtiene todos los préstamos asociados a un cliente.
+     *
+     * @param clientId ID del cliente.
+     * @return Lista de préstamos en formato DTO.
+     */
+    public List<LoanDTO> getLoansByClient(Long clientId) {
+        List<Loan> loans = loanRepository.findByClient_Id(clientId);
+        return loans.stream()
+                .map(LoanMapper::toDTO) // Convertir cada entidad Loan a LoanDTO
                 .collect(Collectors.toList());
     }
 }

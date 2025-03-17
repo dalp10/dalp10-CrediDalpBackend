@@ -1,14 +1,18 @@
 package com.prestamo.dalp.service;
 
 import com.prestamo.dalp.DTO.InstallmentDTO;
-import com.prestamo.dalp.DTO.PaymentDTO;
+import com.prestamo.dalp.DTO.PaymentCreditDTO;
+import com.prestamo.dalp.mapper.InstallmentMapper;
 import com.prestamo.dalp.model.Installment;
 import com.prestamo.dalp.model.InstallmentStatus;
+import com.prestamo.dalp.model.PaymentCredit;
 import com.prestamo.dalp.repository.InstallmentRepository;
+import com.prestamo.dalp.repository.PaymentCreditRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -18,66 +22,222 @@ public class InstallmentService {
     @Autowired
     private InstallmentRepository installmentRepository;
 
-    public Installment processPayment(PaymentDTO paymentDTO) {
-        Installment installment = installmentRepository.findById(paymentDTO.getInstallmentId())
+    @Autowired
+    private PaymentCreditRepository paymentCreditRepository;
+
+    /**
+     * Procesa el pago de una cuota.
+     *
+     * @param paymentCreditDTO Datos del pago.
+     * @return La cuota actualizada.
+     * @throws IllegalArgumentException Si los datos del pago son inválidos.
+     * @throws RuntimeException Si la cuota no se encuentra.
+     */
+    public Installment processPayment(PaymentCreditDTO paymentCreditDTO) {
+        // Validar que el ID de la cuota y el monto a pagar no sean nulos
+        if (paymentCreditDTO.getInstallmentId() == null || paymentCreditDTO.getTotalPaid() == null) {
+            throw new IllegalArgumentException("El ID de la cuota y el monto a pagar no pueden ser nulos");
+        }
+
+        // Buscar la cuota por su ID
+        Installment installment = installmentRepository.findById(paymentCreditDTO.getInstallmentId())
                 .orElseThrow(() -> new RuntimeException("Cuota no encontrada"));
 
-        // Verificar si el pago es completo o parcial
-        BigDecimal totalDue = installment.getAmount();
-        BigDecimal totalPaid = paymentDTO.getTotalPaid();
-
-        // Priorizar el pago de intereses antes que el capital
-        BigDecimal interestDue = installment.getInterestAmount();
-        BigDecimal capitalDue = installment.getCapitalAmount();
-
-        // Calcular el interés pagado
-        BigDecimal interestPaid = paymentDTO.getInterestPaid().min(interestDue);
-        BigDecimal capitalPaid = paymentDTO.getCapitalPaid().min(capitalDue);
-
-        // Asegurar que el pago no exceda el monto total de la cuota
-        if (totalPaid.compareTo(totalDue) > 0) {
-            throw new RuntimeException("El monto pagado excede el monto total de la cuota.");
+        // Validar que la cuota no esté completamente pagada
+        if (installment.getStatus() == InstallmentStatus.PAGADA) {
+            throw new IllegalArgumentException("La cuota ya está completamente pagada");
         }
 
-        // Actualizar los montos pagados
-        installment.setInterestPaid(installment.getInterestPaid().add(interestPaid));
-        installment.setCapitalPaid(installment.getCapitalPaid().add(capitalPaid));
+        // Calcular los montos adeudados de capital e interés
+        BigDecimal interestDue = installment.getInterestAmount().subtract(installment.getInterestPaid());
+        BigDecimal capitalDue = installment.getCapitalAmount().subtract(installment.getCapitalPaid());
+        BigDecimal totalDue = interestDue.add(capitalDue);
 
-        // Verificar si la cuota está completamente pagada
-        if (installment.getInterestPaid().compareTo(interestDue) >= 0 &&
-                installment.getCapitalPaid().compareTo(capitalDue) >= 0) {
-            installment.setStatus(InstallmentStatus.PAID);
+        // Validar que el monto pagado no exceda el total adeudado
+        if (paymentCreditDTO.getTotalPaid().compareTo(totalDue) > 0) {
+            throw new IllegalArgumentException("El monto pagado excede el saldo total pendiente");
+        }
+
+        // Calcular cuánto se destina a interés y cuánto a capital
+        BigDecimal interestToPay = paymentCreditDTO.getTotalPaid().compareTo(interestDue) >= 0 ? interestDue : paymentCreditDTO.getTotalPaid();
+        BigDecimal capitalToPay = paymentCreditDTO.getTotalPaid().subtract(interestToPay);
+
+        // Actualizar los montos pagados en la cuota
+        installment.setInterestPaid(installment.getInterestPaid().add(interestToPay));
+        installment.setCapitalPaid(installment.getCapitalPaid().add(capitalToPay));
+        installment.setPaymentDate(paymentCreditDTO.getPaymentDate());
+
+        // Actualizar los montos restantes y el estado de la cuota
+        installment.updateRemainingAmounts();
+        if (installment.getCapitalRemaining().compareTo(BigDecimal.ZERO) == 0
+                && installment.getInterestRemaining().compareTo(BigDecimal.ZERO) == 0) {
+            installment.setStatus(InstallmentStatus.PAGADA);
         } else {
-            installment.setStatus(InstallmentStatus.PARTIALLY_PAID);
+            installment.setStatus(InstallmentStatus.PARCIALMENTE_PAGADA);
         }
-
-        // Registrar el medio de pago y la fecha de pago
-        installment.setPaymentMethod(paymentDTO.getPaymentMethod());
-        installment.setPaymentDate(paymentDTO.getPaymentDate());
 
         // Guardar la cuota actualizada
-        return installmentRepository.save(installment);
+        Installment updatedInstallment = installmentRepository.save(installment);
+
+        // Registrar el pago en PaymentCredit
+        PaymentCredit paymentCredit = new PaymentCredit();
+        paymentCredit.setCredit(installment.getCredit()); // Asignar el crédito
+        paymentCredit.setInstallment(installment); // Asignar la cuota
+        paymentCredit.setCapitalPaid(capitalToPay); // Monto pagado de capital
+        paymentCredit.setInterestPaid(interestToPay); // Monto pagado de interés
+        paymentCredit.setTotalPaid(paymentCreditDTO.getTotalPaid()); // Monto total pagado
+        paymentCredit.setPaymentDate(paymentCreditDTO.getPaymentDate()); // Fecha de pago
+        paymentCredit.setPaymentMethod(paymentCreditDTO.getPaymentMethod()); // Método de pago
+        paymentCredit.setInstallmentNumber(installment.getInstallmentNumber()); // Número de cuota
+
+        // Guardar el registro de pago
+        paymentCreditRepository.save(paymentCredit);
+
+        // Retornar la cuota actualizada
+        return updatedInstallment;
     }
 
-    public List<InstallmentDTO> getInstallmentsByCreditId(Long creditId) {
-        List<Installment> installments = installmentRepository.findByCreditId(creditId);
+    /**
+     * Obtiene una cuota por su ID.
+     *
+     * @param installmentId ID de la cuota.
+     * @return La cuota en formato DTO.
+     * @throws RuntimeException Si la cuota no se encuentra.
+     */
+    public InstallmentDTO getInstallmentById(Long installmentId) {
+        Installment installment = installmentRepository.findById(installmentId)
+                .orElseThrow(() -> new RuntimeException("Cuota no encontrada"));
+        return InstallmentMapper.toDTO(installment);
+    }
+
+    /**
+     * Actualiza una cuota existente.
+     *
+     * @param installmentId ID de la cuota a actualizar.
+     * @param installmentDTO Datos actualizados de la cuota.
+     * @return La cuota actualizada en formato DTO.
+     * @throws RuntimeException Si la cuota no se encuentra.
+     */
+    public InstallmentDTO updateInstallment(Long installmentId, InstallmentDTO installmentDTO) {
+        Installment installment = installmentRepository.findById(installmentId)
+                .orElseThrow(() -> new RuntimeException("Cuota no encontrada"));
+
+        // Actualizar los campos de la cuota
+        installment.setAmount(installmentDTO.getAmount());
+        installment.setDueDate(installmentDTO.getDueDate());
+        installment.setStatus(installmentDTO.getStatus());
+        installment.setCapitalAmount(installmentDTO.getCapitalAmount());
+        installment.setInterestAmount(installmentDTO.getInterestAmount());
+        installment.setCapitalPaid(installmentDTO.getCapitalPaid());
+        installment.setInterestPaid(installmentDTO.getInterestPaid());
+
+        // Guardar y retornar la cuota actualizada
+        Installment updatedInstallment = installmentRepository.save(installment);
+        return InstallmentMapper.toDTO(updatedInstallment);
+    }
+
+    /**
+     * Elimina una cuota por su ID.
+     *
+     * @param installmentId ID de la cuota a eliminar.
+     * @throws RuntimeException Si la cuota no se encuentra.
+     */
+    public void deleteInstallment(Long installmentId) {
+        Installment installment = installmentRepository.findById(installmentId)
+                .orElseThrow(() -> new RuntimeException("Cuota no encontrada"));
+        installmentRepository.delete(installment);
+    }
+
+    /**
+     * Calcula el saldo pendiente de una cuota.
+     *
+     * @param installmentId ID de la cuota.
+     * @return El saldo pendiente (capital + interés).
+     * @throws RuntimeException Si la cuota no se encuentra.
+     */
+    public BigDecimal calculateRemainingBalance(Long installmentId) {
+        Installment installment = installmentRepository.findById(installmentId)
+                .orElseThrow(() -> new RuntimeException("Cuota no encontrada"));
+
+        BigDecimal capitalRemaining = installment.getCapitalAmount().subtract(installment.getCapitalPaid());
+        BigDecimal interestRemaining = installment.getInterestAmount().subtract(installment.getInterestPaid());
+
+        return capitalRemaining.add(interestRemaining);
+    }
+
+    /**
+     * Obtiene todas las cuotas de un crédito, opcionalmente filtradas por estado.
+     *
+     * @param creditId ID del crédito.
+     * @param status Estado de las cuotas (opcional).
+     * @return Lista de cuotas en formato DTO.
+     */
+    public List<InstallmentDTO> getInstallmentsByCreditIdAndStatus(Long creditId, InstallmentStatus status) {
+        List<Installment> installments;
+        if (status != null) {
+            installments = installmentRepository.findByCreditIdAndStatus(creditId, status);
+        } else {
+            installments = installmentRepository.findByCreditId(creditId);
+        }
         return installments.stream()
-                .map(this::convertToDTO)
+                .map(InstallmentMapper::toDTO)
                 .collect(Collectors.toList());
     }
 
-    private InstallmentDTO convertToDTO(Installment installment) {
-        InstallmentDTO dto = new InstallmentDTO();
-        dto.setId(installment.getId());
-        dto.setAmount(installment.getAmount());
-        dto.setDueDate(installment.getDueDate());
-        dto.setStatus(installment.getStatus());
-        dto.setInstallmentNumber(installment.getInstallmentNumber());
-        dto.setCapitalAmount(installment.getCapitalAmount());
-        dto.setInterestAmount(installment.getInterestAmount());
-        dto.setCapitalPaid(installment.getCapitalPaid());
-        dto.setInterestPaid(installment.getInterestPaid());
+    /**
+     * Recalcula el estado de una cuota basado en los montos pagados.
+     *
+     * @param installmentId ID de la cuota.
+     * @return La cuota actualizada en formato DTO.
+     * @throws RuntimeException Si la cuota no se encuentra.
+     */
+    public InstallmentDTO recalculateInstallmentStatus(Long installmentId) {
+        Installment installment = installmentRepository.findById(installmentId)
+                .orElseThrow(() -> new RuntimeException("Cuota no encontrada"));
 
-        return dto;
+        // Recalcular montos restantes y estado
+        installment.updateRemainingAmounts();
+        if (installment.getCapitalRemaining().compareTo(BigDecimal.ZERO) == 0
+                && installment.getInterestRemaining().compareTo(BigDecimal.ZERO) == 0) {
+            installment.setStatus(InstallmentStatus.PAGADA);
+        } else {
+            installment.setStatus(InstallmentStatus.PARCIALMENTE_PAGADA);
+        }
+
+        // Guardar y retornar la cuota actualizada
+        Installment updatedInstallment = installmentRepository.save(installment);
+        return InstallmentMapper.toDTO(updatedInstallment);
+    }
+
+    /**
+     * Verifica si una cuota está atrasada.
+     *
+     * @param installmentId ID de la cuota.
+     * @return true si la cuota está atrasada, false en caso contrario.
+     * @throws RuntimeException Si la cuota no se encuentra.
+     */
+    public boolean isInstallmentVENCIDO(Long installmentId) {
+        Installment installment = installmentRepository.findById(installmentId)
+                .orElseThrow(() -> new RuntimeException("Cuota no encontrada"));
+
+        LocalDate today = LocalDate.now();
+        return today.isAfter(installment.getDueDate()) && installment.getStatus() != InstallmentStatus.PAGADA;
+    }
+
+
+    /**
+     * Obtiene todas las cuotas de un crédito por su ID.
+     *
+     * @param creditId ID del crédito.
+     * @return Lista de cuotas en formato DTO.
+     */
+    public List<InstallmentDTO> getInstallmentsByCreditId(Long creditId) {
+        // Buscar las cuotas por el ID del crédito
+        List<Installment> installments = installmentRepository.findByCreditId(creditId);
+
+        // Convertir las cuotas a DTO
+        return installments.stream()
+                .map(InstallmentMapper::toDTO)
+                .collect(Collectors.toList());
     }
 }

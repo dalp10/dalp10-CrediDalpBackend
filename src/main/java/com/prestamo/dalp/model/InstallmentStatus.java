@@ -1,8 +1,8 @@
 package com.prestamo.dalp.model;
 
 public enum InstallmentStatus {
-    PENDING,  // Cuota pendiente de pago
-    PAID,     // Cuota pagada
-    OVERDUE,   // Cuota vencida
-    PARTIALLY_PAID // Cuota pagada parcialmente
+    PENDIENTE,       // Cuota pendiente de pago
+    PAGADA,          // Cuota pagada
+    VENCIDA,         // Cuota vencida
+    PARCIALMENTE_PAGADA // Cuota pagada parcialmente
 }

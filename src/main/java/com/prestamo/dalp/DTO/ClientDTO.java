@@ -15,6 +15,7 @@ public class ClientDTO {
     private String email;
     private String phone;
     private String documentNumber;
+    private String clientIdentifier; // Campo agregado
     private boolean hasCredits;
 
     // Constructor personalizado que acepta un objeto Client y un booleano hasCredits
@@ -25,6 +26,7 @@ public class ClientDTO {
         this.email = client.getEmail();
         this.phone = client.getPhone();
         this.documentNumber = client.getDocumentNumber();
+        this.clientIdentifier = client.getClientIdentifier(); // Mapea el clientIdentifier
         this.hasCredits = hasCredits;
     }
 }

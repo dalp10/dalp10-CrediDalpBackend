@@ -2,14 +2,12 @@ package com.prestamo.dalp.model;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonFormat;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.List;
 
 @Entity
 @Table(name = "installments")
@@ -42,7 +40,7 @@ public class Installment {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private InstallmentStatus status = InstallmentStatus.PENDING; // Estado de la cuota (PENDING, PAID, PARTIALLY_PAID, OVERDUE)
+    private InstallmentStatus status = InstallmentStatus.PENDIENTE; // Estado de la cuota (PENDIENTE, PAGADO, PARTIALLY_PAGADO, VENCIDO)
 
     @Column
     private String paymentMethod; // Medio de pago (efectivo, transferencia, Yape, Plin)
@@ -58,5 +56,30 @@ public class Installment {
     @JoinColumn(name = "credit_id", nullable = false)
     @JsonBackReference // Ignora la serialización de la relación en este lado
     private Credit credit; // Crédito asociado a la cuota
+
+    // Nuevos campos
+    @Column(nullable = false)
+    private BigDecimal capitalRemaining; // Monto restante de capital a pagar
+
+    @Column(nullable = false)
+    private BigDecimal interestRemaining; // Monto restante de interés a pagar
+
+    // Método para actualizar los montos restantes
+    public void updateRemainingAmounts() {
+        this.capitalRemaining = this.capitalAmount.subtract(this.capitalPaid);
+        this.interestRemaining = this.interestAmount.subtract(this.interestPaid);
+    }
+
+    @PrePersist
+    public void prePersist() {
+        if (this.capitalRemaining == null) {
+            // Inicializa el restante del capital con el total a pagar en capital
+            this.capitalRemaining = this.capitalAmount;
+        }
+        if (this.interestRemaining == null) {
+            // Inicializa el restante del interés con el total a pagar en interés
+            this.interestRemaining = this.interestAmount;
+        }
+    }
 
 }

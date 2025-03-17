@@ -2,6 +2,7 @@ package com.prestamo.dalp.service;
 
 import com.prestamo.dalp.DTO.CreditDTO;
 import com.prestamo.dalp.model.Credit;
+import com.prestamo.dalp.model.CreditStatus;
 import com.prestamo.dalp.model.Installment;
 import com.prestamo.dalp.model.InstallmentStatus;
 import com.prestamo.dalp.repository.CreditRepository;
@@ -161,7 +162,7 @@ public class CreditService {
     public Installment payInstallment(Long installmentId) {
         Installment installment = installmentRepository.findById(installmentId)
                 .orElseThrow(() -> new RuntimeException("Cuota no encontrada"));
-        installment.setStatus(InstallmentStatus.PAID);
+        installment.setStatus(InstallmentStatus.PAGADA);
         return installmentRepository.save(installment);
     }
 
@@ -255,5 +256,51 @@ public class CreditService {
     public List<Installment> getInstallmentsByCreditId(Long creditId) {
         return installmentRepository.findByCreditId(creditId);
     }
+
+
+    public BigDecimal calculateRemainingCapital(Long creditId) {
+        Credit credit = creditRepository.findById(creditId)
+                .orElseThrow(() -> new RuntimeException("Crédito no encontrado"));
+
+        BigDecimal remainingCapital = credit.getCapitalAmount();
+
+        // Obtener cuotas pagadas y calcular lo pendiente
+        List<Installment> installments = installmentRepository.findByCreditId(creditId);
+        for (Installment installment : installments) {
+            if (installment.getStatus() == InstallmentStatus.PAGADA) {
+                remainingCapital = remainingCapital.subtract(installment.getCapitalPaid());
+            } else if (installment.getStatus() == InstallmentStatus.PARCIALMENTE_PAGADA) {
+                remainingCapital = remainingCapital.subtract(installment.getCapitalPaid());
+            }
+        }
+
+        return remainingCapital;
+    }
+
+    public void updateCreditStatus(Long creditId) {
+        Credit credit = creditRepository.findById(creditId)
+                .orElseThrow(() -> new RuntimeException("Crédito no encontrado"));
+
+        boolean allInstallmentsPAGADO = true;
+
+        // Verificar si todas las cuotas están pagadas
+        for (Installment installment : credit.getInstallments()) {
+            if (installment.getStatus() != InstallmentStatus.PAGADA) {
+                allInstallmentsPAGADO = false;
+                break;
+            }
+        }
+
+        // Actualizar el estado del crédito
+        if (allInstallmentsPAGADO) {
+            credit.setStatus(CreditStatus.PAGADO);
+        } else if (credit.getStatus() != CreditStatus.CANCELADO) {
+            credit.setStatus(CreditStatus.ACTIVO);
+        }
+
+        // Guardar el crédito con su nuevo estado
+        creditRepository.save(credit);
+    }
+
 
 }

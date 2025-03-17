@@ -47,7 +47,7 @@ public class Credit {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private CreditStatus status = CreditStatus.ACTIVE; // Estado del crédito (ACTIVE, PAID, OVERDUE, etc.)
+    private CreditStatus status = CreditStatus.ACTIVO; // Estado del crédito (ACTIVO, PAGADO, VENCIDO, etc.)
 
     @Column(nullable = false, unique = true)
     private String code; // Código autogenerado (CRE-XXX)

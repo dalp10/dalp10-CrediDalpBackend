@@ -41,7 +41,7 @@ public class GroupPayment {
     @Enumerated(EnumType.STRING)
     private PaymentMethod paymentMethod;
 
-    // Estado del reembolso: por ejemplo, "PENDING" (aún no se ha reembolsado todo) o "COMPLETED"
+    // Estado del reembolso: por ejemplo, "PENDIENTE" (aún no se ha reembolsado todo) o "COMPLETADO"
     @NotNull
     private String status;
 

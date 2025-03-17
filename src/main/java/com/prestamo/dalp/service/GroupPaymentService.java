@@ -92,9 +92,16 @@ public class GroupPaymentService {
      * @return El GroupPayment actualizado, o null si no se encontró.
      */
     public GroupPayment updateGroupPayment(Long id, GroupPaymentDTO updatedPaymentDTO) {
+        System.out.println("Actualizando pago grupal con ID: " + id);
+        System.out.println("Datos recibidos: " + updatedPaymentDTO);
         Optional<GroupPayment> optionalPayment = groupPaymentRepository.findById(id);
         if (optionalPayment.isPresent()) {
             GroupPayment existingPayment = optionalPayment.get();
+
+            // Validar que los campos requeridos no sean nulos
+            if (updatedPaymentDTO.getServiceType() == null || updatedPaymentDTO.getTotalAmount() == null) {
+                throw new IllegalArgumentException("Los campos 'serviceType' y 'totalAmount' son obligatorios.");
+            }
 
             // Actualizar campos básicos
             existingPayment.setServiceType(updatedPaymentDTO.getServiceType());
@@ -106,7 +113,11 @@ public class GroupPaymentService {
             // Actualizar el pagador
             if (updatedPaymentDTO.getPayerId() != null) {
                 Optional<Client> payerOpt = clientRepository.findById(updatedPaymentDTO.getPayerId());
-                payerOpt.ifPresent(existingPayment::setPayer);
+                if (payerOpt.isPresent()) {
+                    existingPayment.setPayer(payerOpt.get());
+                } else {
+                    throw new IllegalArgumentException("El cliente con ID " + updatedPaymentDTO.getPayerId() + " no existe.");
+                }
             }
 
             // Actualizar contribuciones
@@ -126,7 +137,7 @@ public class GroupPaymentService {
                 existingPayment.getContributions().addAll(nuevaListaDeContribuciones);
             }
 
-            // **Actualizar montos después de modificar las contribuciones**
+            // Actualizar montos después de modificar las contribuciones
             BigDecimal totalReembolsado = existingPayment.getContributions().stream()
                     .map(GroupPaymentContribution::getAmountPaid)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -134,16 +145,16 @@ public class GroupPaymentService {
             existingPayment.setReimbursedAmount(totalReembolsado);
             existingPayment.setPendingReimbursement(existingPayment.getTotalAmount().subtract(totalReembolsado));
 
-            // **Actualizar el estado automáticamente**
+            // Actualizar el estado automáticamente
             if (totalReembolsado.compareTo(existingPayment.getTotalAmount()) >= 0) {
-                existingPayment.setStatus("COMPLETED"); // Cambio de estado cuando está totalmente pagado
+                existingPayment.setStatus("COMPLETADO"); // Cambio de estado cuando está totalmente pagado
             } else {
-                existingPayment.setStatus("PENDING"); // Estado sigue pendiente si no se ha pagado todo
+                existingPayment.setStatus("PENDIENTE"); // Estado sigue pendiente si no se ha pagado todo
             }
 
             return groupPaymentRepository.save(existingPayment);
         } else {
-            return null;
+            throw new IllegalArgumentException("El pago grupal con ID " + id + " no existe.");
         }
     }
 

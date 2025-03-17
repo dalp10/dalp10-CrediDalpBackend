@@ -4,47 +4,45 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "payments")
+@Table(name = "payment_loans")
 @Data
 @NoArgsConstructor
-public class Payment {
+public class PaymentLoan {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Asociación al préstamo o crédito. Si Credit es una entidad diferente, puedes cambiar el tipo.
+    // Asociación al préstamo
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "loan_id", nullable = false)
     private Loan loan;
 
-    // Nuevo campo para almacenar el número de cuota que se está pagando
+    // Número de cuota que se está pagando
     @NotNull
     @Column(name = "installment_number")
     private Integer installmentNumber;
 
     @NotNull
-    private BigDecimal capitalPaid;  // Monto pagado del capital
+    private BigDecimal capitalPaid;
 
     @NotNull
-    private BigDecimal interestPaid;  // Monto pagado del interés
+    private BigDecimal interestPaid;
 
     @NotNull
-    private BigDecimal totalPaid;  // Monto total pagado (capital + interés)
+    private BigDecimal totalPaid;
 
     @NotNull
-    private LocalDate paymentDate;  // Fecha en que se realizó el pago
+    private LocalDate paymentDate;
 
     @Enumerated(EnumType.STRING)
     @NotNull
-    private PaymentMethod paymentMethod;  // Medio de pago (efectivo, transferencia, Yape, Plin)
+    private PaymentMethod paymentMethod;
 
-    // Método para calcular el total pagado automáticamente
     @PrePersist
     @PreUpdate
     public void calculateTotalPAGADO() {
