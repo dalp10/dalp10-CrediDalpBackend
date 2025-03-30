@@ -36,9 +36,9 @@ spring:
     activate:
       on-profile: render
   datasource:
-    url: jdbc:postgresql://<render-host>:5432/<render-db>
-    username: <render-user>
-    password: <render-pass>
+    url: jdbc:postgresql://dpg-cvkn98a4d50c73dtjq20-a:5432/credidalp_db
+    username: prestamo
+    password: BluP4FfvPgBtFQYODvbbvcTfnA1o5Jvr
 
 ---
 server:
