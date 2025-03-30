@@ -1,0 +1,14 @@
+# Ignorar carpetas innecesarias
+target/
+.git/
+.vscode/
+.idea/
+logs/
+
+# Ignorar archivos del sistema o personales
+*.iml
+*.log
+*.env
+*.md
+.DS_Store
+Thumbs.db
