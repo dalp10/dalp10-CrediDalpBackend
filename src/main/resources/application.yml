@@ -1,0 +1,59 @@
+spring:
+  application:
+    name: dalp
+
+  profiles:
+    active: local # Cambia a "render" cuando hagas deploy en Render
+
+  jackson:
+    stream-write-constraints:
+      max-nesting-depth: 2000
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  datasource:
+    driver-class-name: org.postgresql.Driver
+
+  # Configuración por perfil
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+  datasource:
+    url: jdbc:postgresql://localhost:5432/credidalp
+    username: prestamo
+    password: admin270810
+
+---
+spring:
+  config:
+    activate:
+      on-profile: render
+  datasource:
+    url: jdbc:postgresql://<render-host>:5432/<render-db>
+    username: <render-user>
+    password: <render-pass>
+
+---
+server:
+  port: 8080
+
+logging:
+  file:
+    name: logs/app.log
+  level:
+    org:
+      springframework: ERROR
+      hibernate:
+        SQL: DEBUG
+      web: DEBUG
+    com:
+      prestamo:
+        dalp: DEBUG
+    root: ERROR
